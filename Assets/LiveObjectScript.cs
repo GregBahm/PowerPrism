@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Xml;
 using UnityEngine;
 
 public class LiveObjectScript : MonoBehaviour 
@@ -9,64 +10,36 @@ public class LiveObjectScript : MonoBehaviour
 
     private List<Keyframe> keyframes;
 
-    private float lastTimeProcessed;
-
-    public bool Recording;
-    public float TimeBetweenKeyframes;
-
-    public bool TestRecord;
-    public bool TestPlayback;
+    private int lastRecordedFrame;
+    private bool wasRecordingLastFrame;
 
     private void Start()
     {
-        keyframes = new List<Keyframe>();
-        keyframes.Add(new Keyframe(transform));
+        keyframes = new List<Keyframe>
+        {
+            new Keyframe(transform)
+        };
     }
 
-    void Update ()
-    {
-        if (TestRecord)
-        {
-            TestRecord = false;
-            Timeline.CurrentTime = 0;
-            Timeline.Play = true;
-            Recording = true;
-        }
-        if (TestPlayback)
-        {
-            TestPlayback = false;
-            Recording = false;
-            Timeline.CurrentTime = 0;
-            Timeline.Play = true;
-        }
-
-        float time = Timeline.CurrentTime;
-        if(Mathf.Abs(time - lastTimeProcessed) > TimeBetweenKeyframes)
-        {
-
-            int keyframeIndex = (int)(time / TimeBetweenKeyframes);
-            if (Recording)
-            {
-                UpdateFrameRecording(keyframeIndex);
-            }
-            else
-            {
-                UpdateFramePlayback(time, keyframeIndex);
-            }
-            lastTimeProcessed = time;
-        }
-	}
-
-    private void UpdateFrameRecording(int keyframeIndex)
+    public void Record(int keyframeIndex, bool wasRecordingLastFrame)
     {
         if (keyframeIndex > (keyframes.Count - 1))
         {
             FillInKeyframes(keyframeIndex);
         }
-        keyframes[keyframeIndex] = new Keyframe(transform);
+        Keyframe newFrame = new Keyframe(transform);
+        if ((keyframeIndex > (lastRecordedFrame + 1)) && wasRecordingLastFrame)
+        {
+            for (int i = lastRecordedFrame + 1; i < keyframeIndex; i++)
+            {
+                keyframes[i] = newFrame; //TOOD Make this an interpolation between the last keyframe and this keyframe;
+            }
+        }
+        keyframes[keyframeIndex] = newFrame;
+        lastRecordedFrame = keyframeIndex;
     }
 
-    private void UpdateFramePlayback(float time, int keyframeIndex)
+    public void UpdateFramePlayback(float rawTime, int keyframeIndex, float timeBetweenKeyframes)
     {
         Keyframe target;
         if (keyframeIndex > (keyframes.Count - 1))
@@ -79,57 +52,44 @@ public class LiveObjectScript : MonoBehaviour
         }
         else
         {
-            target = GetInterpolatedKeyframe(time);
+            target = GetInterpolatedKeyframeLinear(rawTime, keyframeIndex, timeBetweenKeyframes);
         }
         ApplyKeyframeToTransform(target);
     }
-    private Keyframe GetInterpolatedKeyframe2(float time)
+    private Keyframe GetInterpolatedKeyframeLinear(float time, int keyframeIndex, float timebetweenKeyframes)
     {
-        float index = time / TimeBetweenKeyframes;
-        int lowKeyframeIndex = Mathf.FloorToInt(index);
-        int highKeyframeIndex = Mathf.CeilToInt(index);
+        float fractionTime = time / timebetweenKeyframes;
+        int lowKeyframeIndex = Mathf.FloorToInt(fractionTime);
+        int highKeyframeIndex = Mathf.CeilToInt(fractionTime);
         Keyframe lowKeyframe = keyframes[lowKeyframeIndex];
         Keyframe highKeyframe = keyframes[highKeyframeIndex];
-        float subFrameParam = index % 1;
+        float subFrameParam = fractionTime % 1;
         return Keyframe.Lerp(lowKeyframe, highKeyframe, subFrameParam);
     }
 
-    private Keyframe GetInterpolatedKeyframe(float time)
+    public XmlElement ToXml(XmlDocument document)
     {
-        time = time / TimeBetweenKeyframes;
-        int AIndex = Mathf.Max(Mathf.FloorToInt(time - 1), 0);
-        int BIndex = Mathf.Max(Mathf.FloorToInt(time), 0);
-        int CIndex = Mathf.CeilToInt(time) + ((Mathf.Abs(time % 1) < Mathf.Epsilon) ? 1 : 0); // handles the case where the value is on a round number
-        int DIndex = CIndex + 1;
-
-        int first;
-        int second;
-        int third;
-
-        float param = time % 1;
-        if (param < 0.5f)
+        XmlElement ret = document.CreateElement("LiveObject");
+        foreach (Keyframe keyframe in keyframes)
         {
-            param = param + 0.5f;
-            first = AIndex;
-            second = BIndex;
-            third = CIndex;
+            XmlElement toXml = keyframe.ToXml(document);
+            ret.AppendChild(toXml);
         }
-        else
+        XmlAttribute nameElement = document.CreateAttribute("Name");
+        nameElement.InnerText = gameObject.name; //TODO: Use guids or something so names don't have to be unique
+        ret.Attributes.Append(nameElement);
+        return ret;
+    }
+
+    public void Load(XmlElement data)
+    {
+        List<Keyframe> newKeyframes = new List<Keyframe>();
+        foreach (XmlElement element in data.ChildNodes)
         {
-            param = param - 0.5f;
-            first = BIndex;
-            second = CIndex;
-            third = DIndex;
+            Keyframe newKeyframe = Keyframe.FromXml(element);
+            newKeyframes.Add(newKeyframe);
         }
-
-        Keyframe firstPoint = keyframes[Mathf.Min(first, keyframes.Count - 1)];
-        Keyframe secondPoint = keyframes[Mathf.Min(second, keyframes.Count - 1)];
-        Keyframe thirdPoint = keyframes[Mathf.Min(third, keyframes.Count - 1)];
-
-        Keyframe firstSecond = Keyframe.Lerp(firstPoint, secondPoint, .5f);
-        Keyframe secondThird = Keyframe.Lerp(secondPoint, thirdPoint, .5f);
-
-        return Keyframe.CubicLerp(firstSecond, secondPoint, secondThird, param);
+        keyframes = newKeyframes;
     }
 
     private void ApplyKeyframeToTransform(Keyframe key)
@@ -173,11 +133,67 @@ public class LiveObjectScript : MonoBehaviour
             return new Keyframe(newPos, newRot, newScale);
         }
 
-        public static Keyframe CubicLerp(Keyframe a, Keyframe b, Keyframe c, float by)
+        internal XmlElement ToXml(XmlDocument document)
         {
-            Keyframe ab = Lerp(a, b, by);
-            Keyframe bc = Lerp(b, c, by);
-            return Lerp(ab, bc, by);
+            XmlElement ret = document.CreateElement("Keyframe");
+            XmlElement posElement = VectorToXml(document, "Position", Position);
+            XmlElement rotElement = QuaternionToXml(document, "Rotation", Rotation);
+            XmlElement scaleElement = VectorToXml(document, "Scale", Scale);
+            ret.AppendChild(posElement);
+            ret.AppendChild(rotElement);
+            ret.AppendChild(scaleElement);
+            return ret;
+        }
+
+        private static XmlElement VectorToXml(XmlDocument document, string name, Vector3 vector)
+        {
+            XmlElement ret = document.CreateElement(name);
+            AddAttribute(ret, document, "X", vector.x);
+            AddAttribute(ret, document, "Y", vector.y);
+            AddAttribute(ret, document, "Z", vector.z);
+            return ret;
+        }
+
+        private static XmlElement QuaternionToXml(XmlDocument document, string name, Quaternion quaternion)
+        {
+            XmlElement ret = document.CreateElement(name);
+            AddAttribute(ret, document, "X", quaternion.x);
+            AddAttribute(ret, document, "Y", quaternion.y);
+            AddAttribute(ret, document, "Z", quaternion.z);
+            AddAttribute(ret, document, "W", quaternion.w);
+            return ret;
+        }
+
+        private static void AddAttribute(XmlElement element, XmlDocument document, string name, float value)
+        {
+            XmlAttribute attribute = document.CreateAttribute(name);
+            attribute.InnerText = value.ToString();
+            element.Attributes.Append(attribute);
+        }
+
+        public static Keyframe FromXml(XmlElement element)
+        {
+            Vector3 pos = LoadVector(element.SelectSingleNode("Position"));
+            Quaternion rot = LoadQuaternion(element.SelectSingleNode("Rotation"));
+            Vector3 scale = LoadVector(element.SelectSingleNode("Scale"));
+            return new Keyframe(pos, rot, scale);
+        }
+
+        private static Quaternion LoadQuaternion(XmlNode element)
+        {
+            float x = Convert.ToSingle(element.Attributes.GetNamedItem("X").InnerText);
+            float y = Convert.ToSingle(element.Attributes.GetNamedItem("Y").InnerText);
+            float z = Convert.ToSingle(element.Attributes.GetNamedItem("Z").InnerText);
+            float w = Convert.ToSingle(element.Attributes.GetNamedItem("W").InnerText);
+            return new Quaternion(x, y, z, w);
+        }
+
+        private static Vector3 LoadVector(XmlNode element)
+        {
+            float x = Convert.ToSingle(element.Attributes.GetNamedItem("X").InnerText);
+            float y = Convert.ToSingle(element.Attributes.GetNamedItem("Y").InnerText);
+            float z = Convert.ToSingle(element.Attributes.GetNamedItem("Z").InnerText);
+            return new Vector3(x, y, z);
         }
     }
 }

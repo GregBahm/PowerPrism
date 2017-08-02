@@ -1,0 +1,9 @@
+/Library/
+/Temp/
+/PowerPrismRepo.csproj
+/PowerPrismRepo.Editor.csproj
+/PowerPrismRepo.Plugins.csproj
+/PowerPrismRepo.sln
+/.vs/
+SaveFile.xml
+/BuildForOcculus_Data

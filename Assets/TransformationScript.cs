@@ -32,7 +32,7 @@ public class TransformationScript : MonoBehaviour
         Transform newTarget = GetTarget();
         if (lastTarget != newTarget && selection.CurrentSelection != null)
         {
-            selection.CurrentSelection.SetParent(newTarget, true);
+            selection.CurrentSelection.gameObject.transform.SetParent(newTarget, true);
         }
         UpdateHandAverage();
         lastTarget = newTarget;

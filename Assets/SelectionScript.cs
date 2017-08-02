@@ -5,8 +5,8 @@ using UnityEngine;
 
 public class SelectionScript : MonoBehaviour 
 {
-    private Transform lastSelection;
-    public Transform CurrentSelection;
+    private LiveObjectScript lastSelection;
+    public LiveObjectScript CurrentSelection;
     public Transform SelectionWand;
     public float RayDistance = 10;
 
@@ -14,8 +14,11 @@ public class SelectionScript : MonoBehaviour
 
     public OutlineScript Outliner;
 
-    public Color PreviewOutlineColor = Color.red;
-    public Color SelectedOutlineColor = Color.cyan;
+    public Color PreviewOutlineColor;
+    public Color SelectedOutlineColor;
+    public Color RecordingColor;
+
+    public bool Recording;
 
     private GameObject wandRayVisiual;
     private Material wandRayMaterial;
@@ -31,6 +34,11 @@ public class SelectionScript : MonoBehaviour
 
     private void Update()
     {
+        Outliner.OutlineColor = GetOulinerColor();
+        if (Recording)
+        {
+            return;
+        }
         if (Selecting)
         {
             RaycastHit rayInfo;
@@ -38,7 +46,7 @@ public class SelectionScript : MonoBehaviour
             bool hit = Physics.Raycast(ray, out rayInfo, RayDistance);
             if (hit)
             {
-                CurrentSelection = rayInfo.transform;
+                CurrentSelection = rayInfo.transform.gameObject.GetComponent<LiveObjectScript>();
             }
             else
             {
@@ -63,8 +71,16 @@ public class SelectionScript : MonoBehaviour
 
         lastSelection = CurrentSelection;
         Outliner.DoBlit = CurrentSelection != null;
-        Outliner.OutlineColor = Selecting ? PreviewOutlineColor : SelectedOutlineColor;
 
+    }
+
+    private Color GetOulinerColor()
+    {
+        if(Recording)
+        {
+            return RecordingColor;
+        }
+        return Selecting? PreviewOutlineColor : SelectedOutlineColor;
     }
 
     private void UpdateWandVisual(RaycastHit rayInfo, bool hit)
