@@ -1,15 +1,17 @@
 ﻿using System;
-using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml;
 using UnityEngine;
 
-public class SceneManagerScript : MonoBehaviour
+public class SceneSlideScript : MonoBehaviour
 {
     public TimelineControlScript Timeline;
     public SelectionScript Selector;
     public List<LiveObjectScript> LiveObjects;
+    public ColorPickerScript ColorPicker;
+    public GameObject ColorPickerSelection;
 
     private float lastTimeProcessed;
     public const float TimeBetweenKeyframes = 0.02f;
@@ -18,6 +20,9 @@ public class SceneManagerScript : MonoBehaviour
     public bool Recording;
 
     public bool DoTheLoad;
+
+    public bool ColorPicking;
+    private bool _wasColorPicking;
 
     internal void ToggleRecording()
     {
@@ -44,10 +49,34 @@ public class SceneManagerScript : MonoBehaviour
         }
         lastRecordedObject = Recording ? Selector.CurrentSelection : null;
 
-        if(DoTheLoad)
+        if (DoTheLoad)
         {
             DoTheLoad = false;
             Load();
+        }
+
+        UpdateColorPicker();
+    }
+    private void UpdateColorPicker()
+    {
+        ColorPicker.gameObject.SetActive(ColorPicking);
+        ColorPickerSelection.gameObject.SetActive(ColorPicking);
+        if (!_wasColorPicking)
+        {
+            ColorPicker.RestoreSphereOffset();
+        }
+        _wasColorPicking = ColorPicking;
+
+        if (Selector.CurrentSelection != null)
+        {
+            if (ColorPicking)
+            {
+                Selector.CurrentSelection.Color = ColorPicker.CurrentColor;
+            }
+            else
+            {
+                //ColorPicker.CurrentColor = Selector.CurrentSelection.Color; //TODO: Make bidirectional color picker
+            }
         }
     }
 

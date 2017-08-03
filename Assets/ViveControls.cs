@@ -8,7 +8,7 @@ public class ViveControls : MonoBehaviour
     public SteamVR_TrackedObject LeftHand;
     public SteamVR_TrackedObject RightHand;
 
-    public SceneManagerScript ManagerScript;
+    public SceneSlideScript SceneSlide;
     public TransformationScript TransformScript;
     public SelectionScript SelectScript;
     public TimelineControlScript TimelineScript;
@@ -29,14 +29,14 @@ public class ViveControls : MonoBehaviour
 
         if(leftHandDevice.GetPressDown(Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad))
         {
-            ManagerScript.ToggleRecording();
+            SceneSlide.ToggleRecording();
         }
 
-        if(rightHandDevice.GetPressDown(Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad))
-        {
-            ManagerScript.Save();
-        }
-
+        //if(rightHandDevice.GetPressDown(Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad))
+        //{
+        //    SceneSlide.Save();
+        //}
+        SceneSlide.ColorPicking = rightHandDevice.GetPress(Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad);
     }
 
     private TransformationScript.ControlMode GetMode(SteamVR_Controller.Device leftHandDevice, SteamVR_Controller.Device rightHandDevice)
