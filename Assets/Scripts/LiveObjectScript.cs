@@ -23,13 +23,16 @@ public class LiveObjectScript : MonoBehaviour
         mat = gameObject.GetComponent<Renderer>().material;
     }
 
-    public void Record(int keyframeIndex, bool wasRecordingLastFrame)
+    public void Record(int keyframeIndex, bool wasRecordingLastFrame, bool colorPicking)
     {
         if (keyframeIndex > (keyframes.Count - 1))
         {
             FillInKeyframes(keyframeIndex);
         }
-        Keyframe newFrame = new Keyframe(transform, Color);
+        
+        Color color = GetColorDuringRecording(keyframeIndex, colorPicking);
+        Keyframe newFrame = new Keyframe(transform, color);
+
         if ((keyframeIndex > (lastRecordedFrame + 1)) && wasRecordingLastFrame)
         {
             for (int i = lastRecordedFrame + 1; i < keyframeIndex; i++)
@@ -39,6 +42,22 @@ public class LiveObjectScript : MonoBehaviour
         }
         keyframes[keyframeIndex] = newFrame;
         lastRecordedFrame = keyframeIndex;
+    }
+
+    private Color GetColorDuringRecording(int keyframeIndex, bool colorPicking)
+    {
+        if(colorPicking)
+        {
+            return Color;
+        }
+        Color ret =  keyframes[keyframeIndex].Color;
+        mat.SetColor("_Color", ret);
+        return ret;
+    }
+
+    public void PreviewColor()
+    {
+        mat.SetColor("_Color", Color);
     }
 
     public void UpdateFramePlayback(float rawTime, int keyframeIndex, float timeBetweenKeyframes)

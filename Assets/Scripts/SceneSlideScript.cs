@@ -37,6 +37,8 @@ public class SceneSlideScript : MonoBehaviour
 
     private void Update()
     {
+        UpdateColorPicker();
+
         float time = Timeline.CurrentTime;
         if (Mathf.Abs(time - lastTimeProcessed) > TimeBetweenKeyframes)
         {
@@ -54,8 +56,6 @@ public class SceneSlideScript : MonoBehaviour
             DoTheLoad = false;
             Load();
         }
-
-        UpdateColorPicker();
     }
     private void UpdateColorPicker()
     {
@@ -72,6 +72,7 @@ public class SceneSlideScript : MonoBehaviour
             if (ColorPicking)
             {
                 Selector.CurrentSelection.Color = ColorPicker.CurrentColor;
+                Selector.CurrentSelection.PreviewColor();
             }
             else
             {
@@ -85,7 +86,7 @@ public class SceneSlideScript : MonoBehaviour
         if (Recording && Selector.CurrentSelection == liveObject)
         {
             bool wasRecordingLastFrame = lastRecordedObject == liveObject;
-            liveObject.Record(keyframeIndex, wasRecordingLastFrame);
+            liveObject.Record(keyframeIndex, wasRecordingLastFrame, ColorPicking);
         }
         else
         {
